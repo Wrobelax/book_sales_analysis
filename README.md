@@ -20,6 +20,7 @@ json_rdbms/
 ├── output/
 |   ├── clean.json               # Fixed JSON file
 |   └── database.db              # Database generated of JSON file
+├── requirements.txt
 ├── dashboard.py                 # Script used for data visualization
 └── pipeline.py                  # Main file used for orchestration of the pipeline.
 ```
