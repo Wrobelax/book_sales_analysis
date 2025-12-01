@@ -65,10 +65,6 @@ def process_dataset(folder_path):
         df_orders_full = df_orders_users.merge(df_books, left_on="book_id", right_on="id", how="left",
                                                suffixes=("", "_book"))
 
-        print("MIN DATE:", df_orders_full["date"].min())
-        print("MAX DATE:", df_orders_full["date"].max())
-        print(df_orders_full["date"].value_counts().sort_index())
-
         results = analyze(df_orders_full)
 
         results["unique_users"] = find_real_user(df_users)

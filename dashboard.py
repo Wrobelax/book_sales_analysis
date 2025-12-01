@@ -66,7 +66,7 @@ for tab, dataset in zip(tabs, DATASETS):
         st.subheader("Top 5 Days by Revenue")
         top5 = analysis.get("top5_days", pd.DataFrame())
         if not top5.empty:
-            st.table(top5)
+            st.dataframe(top5, hide_index=True, width="stretch")
         else:
             st.write("No data")
 

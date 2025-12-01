@@ -26,6 +26,9 @@ def get_top5_days(df_daily: pd. DataFrame) -> pd.DataFrame:
 
     # Rounding and applying thousands separator
     top5["revenue"] = top5["revenue"].apply(lambda x:  f"{x:,.2f}")
+
+    top5.insert(0, "rank", range(1, len(top5) + 1))
+
     top5.reset_index(drop=True, inplace=True)
 
     return top5
