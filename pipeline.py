@@ -3,7 +3,7 @@ Script for running whole pipeline.
 """
 
 import src.etl
-from src.analysis import analyze
+from src.analysis import analyze, find_real_user
 import os
 import pandas as pd
 import yaml
@@ -65,7 +65,13 @@ def process_dataset(folder_path):
         df_orders_full = df_orders_users.merge(df_books, left_on="book_id", right_on="id", how="left",
                                                suffixes=("", "_book"))
 
+        print("MIN DATE:", df_orders_full["date"].min())
+        print("MAX DATE:", df_orders_full["date"].max())
+        print(df_orders_full["date"].value_counts().sort_index())
+
         results = analyze(df_orders_full)
+
+        results["unique_users"] = find_real_user(df_users)
 
         if "best_buyer_aliases" in results:
             results["best_buyer_aliases"] = [int(x) for x in results["best_buyer_aliases"]]

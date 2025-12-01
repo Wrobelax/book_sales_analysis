@@ -35,7 +35,7 @@ def get_top5_days(df_daily: pd. DataFrame) -> pd.DataFrame:
 # Users unification
 # ------------------
 
-USER_KEY_FIELDS = ["id", "name", "email", "phone", "address"]
+USER_KEY_FIELDS = ["name", "email", "phone", "address"]
 
 
 def find_real_user(df: pd.DataFrame) -> int:
@@ -48,8 +48,7 @@ def find_real_user(df: pd.DataFrame) -> int:
     # Picking only existing identifiable columns
     cols = [c for c in USER_KEY_FIELDS if c in df.columns]
 
-    profiles = df[cols].fillna("")
-    profiles = profiles.apply(tuple, axis=1)
+    profiles = df[cols].fillna("").apply(tuple, axis=1)
 
     unique_groups = []
 
@@ -57,17 +56,15 @@ def find_real_user(df: pd.DataFrame) -> int:
         matched = False
 
         for group in unique_groups:
-            for g in group:
-                # How many different fields?
-                diff = sum(x != y for x, y in zip(p, g))
+            representative = group[0]
 
-                # Only one different field applicable
-                if diff <= 1:
-                    group.append(g)
-                    matched = True
-                    break
+            # How many different fields?
+            diff = sum(x != y for x, y in zip(p, representative))
 
-            if matched:
+            # Only one different field applicable
+            if diff <= 1:
+                group.append(p)
+                matched = True
                 break
 
         if not matched:
