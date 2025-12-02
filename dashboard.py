@@ -60,9 +60,9 @@ for dataset in DATASETS:
         all_results[dataset] = None
 
 
-# ----------------------------------
+# ------------
 # Streamlit UI
-# ----------------------------------
+# ------------
 st.title("Book Sales Dashboard")
 
 tabs = st.tabs(DATASETS)

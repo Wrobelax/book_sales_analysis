@@ -2,7 +2,6 @@
 Script used for analysis of data.
 """
 
-from typing import Union
 import pandas as pd
 
 
@@ -49,11 +48,10 @@ def find_real_user(df: pd.DataFrame) -> int:
     - User can have one field different (e.g. address, phone)
     - If 2 records differs by only one column they are treated as the same.
     """
-
     cols = [c for c in USER_KEY_FIELDS if c in df.columns]
 
     profiles = df[cols].fillna("").astype(str).apply(tuple, axis=1)
-    clusters = []  # [{"rep": tuple, "items": [...]}]
+    clusters = []
 
     for p in profiles:
         matched = False
@@ -61,7 +59,7 @@ def find_real_user(df: pd.DataFrame) -> int:
             rep = group["rep"]
             diff = sum(a != b for a, b in zip(p, rep))
 
-            if diff <= 1:  # ≤1 differing field
+            if diff <= 1:
                 group["items"].append(p)
                 matched = True
                 break
@@ -146,7 +144,7 @@ def best_buyer(df: pd.DataFrame) -> list:
         axis=1
     ))
 
-    clusters = []  # [{"rep": tuple, "user_ids": set(), "spend": float}]
+    clusters = []
 
     for uid, prof, spend in profiles:
         matched = False

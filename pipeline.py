@@ -3,7 +3,7 @@ Script for running whole pipeline.
 """
 
 import src.etl
-from src.analysis import analyze, find_real_user
+from src.analysis import analyze
 import os
 import pandas as pd
 import yaml

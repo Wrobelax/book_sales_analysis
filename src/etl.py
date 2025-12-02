@@ -133,7 +133,6 @@ def parse_timestamp(series: pd.Series) -> pd.Series:
     Parse timestamps with mixed formats like:
     '09:19:51 P.M., 12-Dec-2024', '15-December-2024, 08:44:59 P.M.', '04:49:37 P.M.,03/11/25'
     """
-
     def clean_text(x: str) -> str:
         if pd.isna(x):
             return ""
@@ -182,7 +181,6 @@ def ensure_types(df: pd. DataFrame) -> pd.DataFrame:
     """
     Ensuring all types are correct.
     """
-
     if "quantity" in df.columns:
         df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
 
@@ -218,7 +216,6 @@ def remove_dupes_and_bad_rows(df: pd.DataFrame) -> pd.DataFrame:
     """
     Remove duplicates and rows without basic data.
     """
-
     df = df.drop_duplicates()
 
     # Remove rows with no timestamp after parsing
