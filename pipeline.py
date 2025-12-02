@@ -41,7 +41,9 @@ def process_dataset(folder_path):
     orders_file = os.path.join(folder_path, "orders.parquet")
     users_file = os.path.join(folder_path, "users.csv")
     books_file = os.path.join(folder_path, "books.yaml")
+    df_orders_full = pd.DataFrame()
 
+    # Process orders
     if os.path.exists(orders_file):
         df_orders = pd.read_parquet(orders_file)
         df_orders["source_file"] = "orders.parquet"
@@ -54,31 +56,45 @@ def process_dataset(folder_path):
     else:
         df_orders = pd.DataFrame()
 
+    # Process books
     df_books = load_books_yaml(books_file)
     df_books = src.etl.clean_column_names(df_books)
+    df_books.rename(columns={"id": "id_book"}, inplace=True)
+    df_books = df_books.drop_duplicates(subset=["id_book"])
 
+    # Process users
     df_users = load_users_csv(users_file)
+    df_users.rename(columns={"id": "id_user"}, inplace=True)
+    df_users = df_users.drop_duplicates(subset=["id_user"])
 
+    # Merge data
     if not df_orders.empty and not df_users.empty and not df_books.empty:
-        df_orders_users = df_orders.merge(df_users, left_on="user_id", right_on="id", how="left",
-                                          suffixes=("", "_user"))
-        df_orders_full = df_orders_users.merge(df_books, left_on="book_id", right_on="id", how="left",
-                                               suffixes=("", "_book"))
+        df_orders_users = df_orders.merge(df_users, left_on="user_id", right_on="id_user", how="left")
+        df_orders_full = df_orders_users.merge(df_books, left_on="book_id", right_on="id_book", how="left")
+
+        book_price_cols = [
+            c for c in df_orders_full.columns
+            if c not in ["unit_price", "paid_price"] and "price" in c
+        ]
+        df_orders_full.drop(columns=book_price_cols, inplace=True, errors="ignore")
+
 
         results = analyze(df_orders_full)
 
-        results["unique_users"] = find_real_user(df_users)
+        if "best_buyer_aliases" in results and isinstance(results["best_buyer_aliases"], list):
+            results["best_buyer_aliases"] = sorted(set(int(x) for x in results["best_buyer_aliases"]))
 
-        if "best_buyer_aliases" in results:
-            results["best_buyer_aliases"] = [int(x) for x in results["best_buyer_aliases"]]
 
     else:
         results = {}
+
+
 
     return {
         "orders": df_orders,
         "books": df_books,
         "users": df_users,
+        "orders_full": df_orders_full,
         "analysis": results
     }
 
@@ -113,8 +129,8 @@ def save_results_to_csv(results, output_folder="results"):
 
             analysis = res["analysis"]
             if analysis:
-                if "top_5_days" in analysis:
-                    analysis["top_5_days"].to_csv(os.path.join(output_folder, f"{ds}_top5_days.csv"), index=False)
+                if "top5_days" in analysis:
+                    analysis["top5_days"].to_csv(os.path.join(output_folder, f"{ds}_top5_days.csv"), index=False)
                 if "daily_revenue" in analysis:
                     analysis["daily_revenue"].to_csv(os.path.join(output_folder, f"{ds}_daily_revenue.csv"), index=False)
 

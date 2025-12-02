@@ -13,18 +13,32 @@ from pipeline import process_dataset
 #--------------------
 # Daily revenue chart
 #--------------------
-def plot_daily_revenue(daily_df):
+def plot_revenue_chart(daily):
     """
-    Return table with daily revenue containing date, revenue.
+    Plot daily revenue chart using scatter and rolling trend.
     """
-    fig, ax = plt.subplots(figsize=(10,5))
-    ax.plot(daily_df["date"], daily_df["revenue"], marker="o")
-    ax.set_title("Daily Revenue")
+    if daily.empty:
+        return None
+
+    daily = daily.sort_values("date")
+    x = daily["date"]
+    y = daily["revenue"]
+    trend = y.rolling(30, min_periods=1).mean()
+
+    # --- PLOT ---
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    ax.scatter(x, y, s=10, alpha=0.5, color="blue", label="Daily Revenue")
+    ax.plot(x, trend, color="steelblue", linewidth=2, label="Trend (30-day avg)")
+
+    ax.set_title("Daily Revenue (summed orders) + Trend")
     ax.set_xlabel("Date")
     ax.set_ylabel("Revenue (USD)")
-    plt.xticks(rotation=45)
+
     ax.grid(True)
+    ax.legend()
     plt.tight_layout()
+
     return fig
 
 
@@ -81,13 +95,12 @@ for tab, dataset in zip(tabs, DATASETS):
 
         st.subheader("Best Buyer (IDs)")
         best_ids = analysis.get("best_buyer_aliases", [])
-        best_ids = [int(x) for x in best_ids]
         st.code(json.dumps(best_ids), language="json")
 
         st.subheader("Daily Revenue Chart")
         daily = analysis.get("daily_revenue", pd.DataFrame())
         if not daily.empty:
-            fig = plot_daily_revenue(daily)
+            fig = plot_revenue_chart(daily)
             st.pyplot(fig)
         else:
             st.write("No data")

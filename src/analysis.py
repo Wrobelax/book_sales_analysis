@@ -19,19 +19,21 @@ def compute_daily_revenue(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_top5_days(df_daily: pd. DataFrame) -> pd.DataFrame:
     """
-    Returns top 5 days per revenue. Date format: YYY-MM-DD (str).
+    Returns top 5 days per revenue. Date format: YYY-MM-DD.
     """
+    # Normalize to date only
+    df_daily = df_daily.copy()
+    df_daily["date"] = pd.to_datetime(df_daily["date"], errors="coerce").dt.date
+
     top5 = df_daily.sort_values("revenue", ascending=False).head(5).copy()
-    top5["date"] = top5["date"].astype(str)
 
-    # Rounding and applying thousands separator
-    top5["revenue"] = top5["revenue"].apply(lambda x:  f"{x:,.2f}")
+    # Format revenue nicely
+    top5["revenue"] = top5["revenue"].apply(lambda x: f"{x:,.2f}")
 
+    # Add rank
     top5.insert(0, "rank", range(1, len(top5) + 1))
 
-    top5.reset_index(drop=True, inplace=True)
-
-    return top5
+    return top5.reset_index(drop=True)
 
 
 # ------------------
@@ -48,32 +50,26 @@ def find_real_user(df: pd.DataFrame) -> int:
     - If 2 records differs by only one column they are treated as the same.
     """
 
-    # Picking only existing identifiable columns
     cols = [c for c in USER_KEY_FIELDS if c in df.columns]
 
-    profiles = df[cols].fillna("").apply(tuple, axis=1)
-
-    unique_groups = []
+    profiles = df[cols].fillna("").astype(str).apply(tuple, axis=1)
+    clusters = []  # [{"rep": tuple, "items": [...]}]
 
     for p in profiles:
         matched = False
+        for group in clusters:
+            rep = group["rep"]
+            diff = sum(a != b for a, b in zip(p, rep))
 
-        for group in unique_groups:
-            representative = group[0]
-
-            # How many different fields?
-            diff = sum(x != y for x, y in zip(p, representative))
-
-            # Only one different field applicable
-            if diff <= 1:
-                group.append(p)
+            if diff <= 1:  # ≤1 differing field
+                group["items"].append(p)
                 matched = True
                 break
 
         if not matched:
-            unique_groups.append([p])
+            clusters.append({"rep": p, "items": [p]})
 
-    return len(unique_groups)
+    return len(clusters)
 
 
 #---------------
@@ -90,6 +86,7 @@ def normalize_author(author_string: str) -> frozenset:
     authors = [
         a.strip()
         for a in author_string.replace(",", ";").split(";")
+        if a.strip()
     ]
     return frozenset(authors)
 
@@ -112,11 +109,16 @@ def most_popular_author_or_set(df: pd.DataFrame) -> str:
     if "author" not in df.columns:
         return "N/A"
 
-    df["author_set"] = df["author"].apply(normalize_author)
-    popularity = (df.groupby("author_set")["quantity"].sum().sort_values(ascending=False))
-    most_popular_set = popularity.index[0] if not popularity.empty else "N/A"
+    temp = df["author"].apply(normalize_author)
+    valid = temp.apply(lambda s: len(s) > 0)
 
-    return ", ".join(sorted(most_popular_set))
+    if valid.sum() == 0:
+        return "N/A"
+
+    popularity = df[valid].groupby(temp[valid])["quantity"].sum()
+    best = popularity.sort_values(ascending=False).index[0]
+
+    return ", ".join(sorted(best))
 
 
 #----------------
@@ -131,20 +133,42 @@ def best_buyer(df: pd.DataFrame) -> list:
     - address
     - name
     """
-    cols = ["id", "email", "phone", "address", "name"]
+    cols = ["user_id", "quantity", "paid_price", "name", "email", "phone", "address"]
     cols = [c for c in cols if c in df.columns]
 
-    spending = df.groupby(cols, dropna=False)["paid_price"].sum().reset_index()
-    best = spending.sort_values("paid_price", ascending=False).iloc[0]
+    df2 = df[cols].copy()
+    df2 = df2.fillna("").astype({"paid_price": float})
 
-    linked = df[
-        (df["email"] == best.get("email")) |
-        (df["phone"] == best.get("phone")) |
-        (df["address"] == best.get("address")) |
-        (df["name"] == best.get("name"))
-    ]["id"]
+    profile_cols = [c for c in ["name", "email", "phone", "address"] if c in df2.columns]
 
-    return [int(x) for x in linked.values]
+    profiles = list(df2.apply(
+        lambda r: (int(r["user_id"]), tuple(r[c] for c in profile_cols), float(r["paid_price"])),
+        axis=1
+    ))
+
+    clusters = []  # [{"rep": tuple, "user_ids": set(), "spend": float}]
+
+    for uid, prof, spend in profiles:
+        matched = False
+
+        for cl in clusters:
+            rep = cl["rep"]
+            diff = sum(a != b for a, b in zip(prof, rep))
+
+            if diff <= 1:
+                cl["user_ids"].add(uid)
+                cl["spend"] += spend
+                matched = True
+                break
+
+        if not matched:
+            clusters.append({"rep": prof, "user_ids": {uid}, "spend": spend})
+
+    if not clusters:
+        return []
+
+    best_cluster = max(clusters, key=lambda c: c["spend"])
+    return sorted(best_cluster["user_ids"])
 
 
 #--------------
@@ -157,9 +181,7 @@ def compute_paid_price(df, eur_to_usd=1.2):
     """
     df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
     df["unit_price"] = pd.to_numeric(df["unit_price"], errors="coerce")
-
-    df["paid_price"] = df["quantity"] * df["unit_price"] * eur_to_usd
-
+    df["paid_price"] = df["quantity"] * df["unit_price"]
     return df
 
 
@@ -177,7 +199,8 @@ def analyze(df: pd.DataFrame) -> dict:
     - Best client
     - Revenue chart data
     """
-    df = compute_paid_price(df)
+    df = df.copy()
+
     daily = compute_daily_revenue(df)
     top5 = get_top5_days(daily)
 
